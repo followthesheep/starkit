@@ -14,8 +14,8 @@ class CMFGENProcessGrid(BaseProcessGrid):
 
     """
 
-    R_initial = 300000
-    R_initial_sampling=1
+    R_initial = 50000
+    R_initial_sampling=2
     def __init__(self, index, input_wavelength, meta, wavelength_start=0*u.angstrom, wavelength_stop=np.inf*u.angstrom,
                  R=5000.0, R_sampling=4):
         """
@@ -56,8 +56,8 @@ class CMFGENProcessGrid(BaseProcessGrid):
         -------
             : numpy.ndarray
         """
-        fname_npy = fname.replace('.bz2', '.v1.npy')
+        fname_npy = fname.replace('.tsv', '.v1.npy')
         if not os.path.exists(fname_npy):
             convert_bz2_memmap(fname)
-        flux = np.load(fname_npy)
-        return flux * np.pi
+        flux = np.load(fname_npy, allow_pickle=True)
+        return flux

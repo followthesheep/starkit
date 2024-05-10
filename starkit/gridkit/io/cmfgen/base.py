@@ -17,13 +17,14 @@ cmfgen_bibtex = """
 """
 
 cmfgen_meta = {'bibtex':cmfgen_bibtex,
-             'parameters':['teff', 'logg', 'mh', 'micro'],
+             'parameters':['teff', 'logg', 'mh', 'micro','heh'],
              'wavelength_unit':'Angstrom',
              'wavelength_type':'vacuum',
              'flux_unit': 'erg/s/cm^2/angstrom'}
 
 
-def make_raw_index(mh=-0.08,alpha=-0.05,res=300000.0):
+def make_raw_index(mh=-0.08,alpha=-0.05,res=300000.0,spectra_dir='spectra',
+                   metadata='ogrid_metadata'):
     """
     Read all Phoenix files and generate a raw index with filename association.
 
@@ -31,7 +32,7 @@ def make_raw_index(mh=-0.08,alpha=-0.05,res=300000.0):
     -------
         bosz_index : pd.DataFrame
     """
-    all_fnames = glob('spectra/*.tsv')
+    all_fnames = glob(os.path.join(spectra_dir,'*.tsv'))
 
     nfiles = len(all_fnames)
     mh_arr = np.zeros(nfiles)
@@ -41,34 +42,37 @@ def make_raw_index(mh=-0.08,alpha=-0.05,res=300000.0):
     micro_arr = np.zeros(nfiles)
     #rot_arr = np.zeros(nfiles)
     res_arr = np.zeros(nfiles)
+    he_h_arr = np.zeros(nfiles)
     #pattern = re.compile('a(mp|mm)(\d+)(cp|cm)(\d+)+(op|om)(\d+)t(\d+)g(\d+)v(\d+)modrt(\d+)b(\d+)')
     #pattern_dir = re.compile('metal_(.....)\/carbon_(.....)\/alpha_(.....)')
-    tab = pd.read_csv('ogrid_metadata',delim_whitespace=True,skiprows=25)
+    tab = pd.read_csv(metadata,delim_whitespace=True,skiprows=23)
 
     for i in np.arange(nfiles):
         filename = all_fnames[i]
         p = os.path.split(filename)[1]
         base = p.split('_')
-        search_str = '_'.join(base[0:1])
+        search_str = '_'.join(base[0:3])
+        print(search_str)
         indx = tab[tab['MODEL'].str.contains(search_str)].index[0]
-
-        logg = tab['Log'].iloc[indx]
+        print(indx)
+        logg = tab['Logg'].iloc[indx]
         micro = tab['V(km/s)'].iloc[indx]
-
+        he_h = tab['He/H'].iloc[indx]
         mh_arr[i] = float(mh)
         #ch_arr[i] = float(ch)
         alpha_arr[i] = float(alpha)
         teff_arr[i] = tab['Teff'].iloc[indx]
         logg_arr[i] = float(logg)
         micro_arr[i] = float(micro)
+        he_h_arr[i] = float(he_h)
         #rot_arr[i] = float(rot)
         res_arr[i] = float(res)
 
     return pd.DataFrame({'mh':mh_arr,'alpha':alpha_arr,'teff':teff_arr,
                       'logg':logg_arr,'micro':micro_arr,
-                      'res':res_arr,'filename':all_fnames})
+                      'res':res_arr,'heh':he_h_arr,'filename':all_fnames})
 
-def make_grid_info(fname):
+def make_grid_info(fname,spectra_dir='spectra',metadata='ogrid_metadata'):
     """
     Make the HDF5 Grid Info file
 
@@ -78,7 +82,7 @@ def make_grid_info(fname):
 
     """
 
-    raw_index = make_raw_index()
+    raw_index = make_raw_index(spectra_dir=spectra_dir,metadata=metadata)
     wtab = pd.read_csv(raw_index.loc[0, 'filename'], delim_whitespace=True)
     wavelength = wtab['wavelength']
 
@@ -106,7 +110,7 @@ def convert_bz2_memmap(fname):
         flux = flux.values[:,0]
         np.save(fname_npy, flux)
 
-def cache_cmfgen_grid(delete=False):
+def cache_cmfgen_grid(delete=False,spectra_dir='spectra'):
     """
     Extract and cache BOSZ grid
     Parameters
@@ -118,7 +122,7 @@ def cache_cmfgen_grid(delete=False):
     -------
 
     """
-    all_fnames = glob('spectra/*')
+    all_fnames = glob(os.path.join(spectra_dir,'*.tsv'))
     bar = ProgressBar(maxval=len(all_fnames))
     for i, fname in bar(enumerate(all_fnames)):
         convert_bz2_memmap(fname)
